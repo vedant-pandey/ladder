@@ -22,7 +22,12 @@ void enableRawMode(void) {
 
     // c_lflag is for local flags
     // ECHO is a feature that echoes any key pressed to the terminal
+    // ICANON is flag for canonical mode(input is read on pressing enter)
+    // ISIG is flag for interrupt signals
+    // IXON enables XON(<C-s> to pause data transmission and <C-q> resumes)
+    // for certain terminals
     // Disable each key to be printed in the terminal as a  local flag
+    raw.c_lflag &= ~(IXON);
     raw.c_lflag &= ~(ECHO | ICANON | ISIG);
 
     // Sets the terminal attributes from variable raw
