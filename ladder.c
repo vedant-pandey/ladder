@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <sys/termios.h>
 #include <termios.h>
 #include <unistd.h>
@@ -14,13 +15,14 @@ void die(const char *s) {
 
 void disableRawMode(void) {
     // Reset to original flags for current terminal session
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
+        die("tcsetattr");
 }
 
 // Disable canonical mode(aka Cooked Mode) in terminal
 void enableRawMode(void) {
     // Gets the attributes of running terminal in raw variable
-    tcgetattr(STDIN_FILENO, &orig_termios);
+    if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) die("tcgetattr");
     atexit(disableRawMode);
 
     struct termios raw = orig_termios;
@@ -45,7 +47,7 @@ void enableRawMode(void) {
     raw.c_cc[VTIME] = 1; // Timeout of read until it returns(unit deciseconds)
 
     // Sets the terminal attributes from variable raw
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
 int main(void) {
@@ -53,7 +55,7 @@ int main(void) {
 
     char c = '\0';
     while (1) {
-        read(STDIN_FILENO, &c, 1);
+        if (read(STDIN_FILENO, &c, 1) == -1 && errno != EAGAIN) die("read");
         if (iscntrl(c)) {
             printf("%d\r\n", c);
         } else {
