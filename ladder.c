@@ -7,6 +7,11 @@
 
 struct termios orig_termios;
 
+void die(const char *s) {
+    perror(s);
+    exit(1);
+}
+
 void disableRawMode(void) {
     // Reset to original flags for current terminal session
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
