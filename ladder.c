@@ -26,9 +26,12 @@ void enableRawMode(void) {
     // ISIG is flag for interrupt signals
     // IXON enables XON(<C-s> to pause data transmission and <C-q> resumes)
     // for certain terminals
+    // IEXTEN is flag that let's you send special characters(eg <C-c>)
+    // to terminal after pressing <C-v>
+    // ICRNL is flag that enables echoing for new line and carriage return
     // Disable each key to be printed in the terminal as a  local flag
-    raw.c_lflag &= ~(IXON);
-    raw.c_lflag &= ~(ECHO | ICANON | ISIG);
+    raw.c_iflag &= ~(IXON | ICRNL);
+    raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
 
     // Sets the terminal attributes from variable raw
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
