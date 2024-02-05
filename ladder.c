@@ -29,8 +29,11 @@ void enableRawMode(void) {
     // IEXTEN is flag that let's you send special characters(eg <C-c>)
     // to terminal after pressing <C-v>
     // ICRNL is flag that enables echoing for new line and carriage return
+    // OPOST flag sends \r\n when \n is pressed
     // Disable each key to be printed in the terminal as a  local flag
-    raw.c_iflag &= ~(IXON | ICRNL);
+    raw.c_iflag &= ~(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
+    raw.c_oflag &= ~(OPOST);
+    raw.c_cflag |= (CS8);
     raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
 
     // Sets the terminal attributes from variable raw
@@ -43,9 +46,9 @@ int main(void) {
     char c;
     while (read(STDIN_FILENO, &c, 1) == 1 && c != 'q') {
         if (iscntrl(c)) {
-            printf("%d\n", c);
+            printf("%d\r\n", c);
         } else {
-            printf("%d ('%c')\n", c, c);
+            printf("%d ('%c')\r\n", c, c);
         }
     }
     return 0;
