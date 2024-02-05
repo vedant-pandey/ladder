@@ -23,7 +23,7 @@ void enableRawMode(void) {
     // c_lflag is for local flags
     // ECHO is a feature that echoes any key pressed to the terminal
     // Disable each key to be printed in the terminal as a  local flag
-    raw.c_lflag &= ~(ECHO | ICANON);
+    raw.c_lflag &= ~(ECHO | ICANON | ISIG);
 
     // Sets the terminal attributes from variable raw
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
