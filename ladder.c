@@ -36,6 +36,9 @@ void enableRawMode(void) {
     raw.c_cflag |= (CS8);
     raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
 
+    raw.c_cc[VMIN] = 0; // Minimum number of bytes of input needed before read returns
+    raw.c_cc[VTIME] = 1; // Timeout of read until it returns(unit deciseconds)
+
     // Sets the terminal attributes from variable raw
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
@@ -43,13 +46,16 @@ void enableRawMode(void) {
 int main(void) {
     enableRawMode();
 
-    char c;
-    while (read(STDIN_FILENO, &c, 1) == 1 && c != 'q') {
+    char c = '\0';
+    while (1) {
+        read(STDIN_FILENO, &c, 1);
         if (iscntrl(c)) {
             printf("%d\r\n", c);
         } else {
             printf("%d ('%c')\r\n", c, c);
         }
+
+        if (c == 'q') break;
     }
     return 0;
 }
