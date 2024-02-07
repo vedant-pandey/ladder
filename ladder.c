@@ -1,4 +1,5 @@
 /*** includes ***/
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -112,6 +113,29 @@ int getWindowSize(int *rows, int *cols) {
     }
 }
 
+/*** append buffer ***/
+
+// Implementation of dynamic strings
+struct abuf {
+    char *b;
+    int len;
+};
+
+#define ABUF_INIT {NULL, 0}
+
+void abAppend(struct abuf *ab, const char *s, int len) {
+    char *new = realloc(ab->b, ab->len + len);
+
+    if (new == NULL) return;
+    memcpy(&new[ab->len], s, len);
+    ab->b = new;
+    ab->len += len;
+}
+
+void abFree(struct abuf *ab) {
+    free(ab->b);
+}
+
 /*** input ***/
 
 void editorProcessKeypress(void) {
@@ -126,30 +150,34 @@ void editorProcessKeypress(void) {
 
 /*** output ***/
 
-void editorDrawRows(void) {
+void editorDrawRows(struct abuf *ab) {
     int y;
     for (y = 0; y < E.screen_rows; ++y) {
-        write(STDOUT_FILENO, "~", 1);
+        abAppend(ab, "~", 1);
 
         // printing newline for last row makes terminal scroll up
         // this ensures last line doesn't have CRNL in it 
         if (y < E.screen_rows - 1) {
-            write(STDOUT_FILENO, "\r\n", 2);
+            abAppend(ab, "\r\n", 2);
         }
     }
 }
 
 void editorRefreshScreen(void) {
+    struct abuf ab = ABUF_INIT;
     // 4 describes to write 4 bytes in the terminal
     // \x1b initiates escape sequence and is 27 in decimal
     // [2J are other 3 bytes which are the escape sequence for clear screen
     // Ref https://vt100.net/docs/vt100-ug/chapter3.html#ED
-    write(STDOUT_FILENO, "\x1b[2J", 4);
-    write(STDOUT_FILENO, "\x1b[H", 3);
+    abAppend(&ab, "\x1b[2J", 4);
+    abAppend(&ab, "\x1b[H", 3);
 
-    editorDrawRows();
+    editorDrawRows(&ab);
 
-    write(STDOUT_FILENO, "\x1b[H", 3);
+    abAppend(&ab, "\x1b[H", 3);
+
+    write(STDOUT_FILENO, ab.b, ab.len);
+    abFree(&ab);
 }
 
 /*** init ***/
