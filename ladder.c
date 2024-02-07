@@ -13,6 +13,8 @@
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
+#define CRNL "\r\n"
+
 /*** data ***/
 
 struct editorConfig {
@@ -182,7 +184,7 @@ void editorDrawRows(ABUF_T *ab) {
         // printing newline for last row makes terminal scroll up
         // this ensures last line doesn't have CRNL in it 
         if (y < E.screen_rows - 1) {
-            abAppend(ab, "\r\n", 2);
+            abAppend(ab, CRNL, 2);
         }
     }
 }
