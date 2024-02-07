@@ -12,12 +12,17 @@
 #define LADDER_VERSION "0.0.1"
 
 #define CTRL_KEY(k) ((k) & 0x1f)
+#define READ_FILE(buf, buf_len) (read(STDIN_FILENO, buf, buf_len))
+#define WRITE_FILE(buf, buf_len) (write(STDOUT_FILENO, buf, buf_len))
 
+#define ES27_C '\x1b'
 #define CRNL "\r\n"
+#define ES27_S "\x1b"
 
 /*** data ***/
 
 struct editorConfig {
+    int cx, cy;
     int screen_rows;
     int screen_cols;
     struct termios orig_termios;
@@ -28,8 +33,8 @@ struct editorConfig E;
 /*** terminal ***/
 
 void die(const char *s) {
-    write(STDOUT_FILENO, "\x1b[2J", 4);
-    write(STDOUT_FILENO, "\x1b[H", 3);
+    WRITE_FILE(ES27_S"[2J", 4);
+    WRITE_FILE(ES27_S"[H", 3);
 
     perror(s);
     exit(1);
@@ -78,6 +83,24 @@ char editorReadKey(void) {
     while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
         if (nread == -1 && errno != EAGAIN) die("read");
     }
+
+    if (c == ES27_C) {
+        char seq[3];
+
+        if (READ_FILE(&seq[0], 1) != 1) return ES27_C;
+        if (READ_FILE(&seq[1], 1) != 1) return ES27_C;
+
+        if (seq[0] == '[') {
+            switch (seq[1]) {
+                case 'A': return 'k';
+                case 'B': return 'j';
+                case 'C': return 'l';
+                case 'D': return 'h';
+            }
+        }
+
+        return ES27_C;
+    }
     
     return c;
 }
@@ -86,17 +109,17 @@ int getCursorPosition(int *rows, int *cols) {
     char buf[32];
     unsigned int i = 0;
 
-    if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4) return -1;
+    if (WRITE_FILE(ES27_S"[6n", 4) != 4) return -1;
 
     while (i < sizeof(buf) -1) {
-        if (read(STDOUT_FILENO, &buf[i], 1) != 1) break;
+        if (READ_FILE(&buf[i], 1) != 1) break;
         // 'R' represents the end of byte sequence for cursor report escape sequence
         if (buf[i] == 'R') break;
         ++i;
     }
     buf[i] = '\0';
 
-    if (buf[0] != '\x1b' || buf[1] != '[') return -1;
+    if (buf[0] != ES27_C || buf[1] != '[') return -1;
     if (sscanf(&buf[2], "%d;%d", rows, cols) != 2) return -1;
 
     return 0;
@@ -107,7 +130,7 @@ int getWindowSize(int *rows, int *cols) {
 
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
         // Goes to bottom right of the screen, 999 represents arbitrarily large value
-        if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) return -1;
+        if (WRITE_FILE(ES27_S"[999C\x1b[999B", 12) != 12) return -1;
         // Get the current cursor position to record the size of the window
         return getCursorPosition(rows, cols);
     } else {
@@ -143,12 +166,35 @@ void abFree(ABUF_T *ab) {
 
 /*** input ***/
 
+void editorMoveCursor(char key) {
+    switch (key) {
+        case 'h':
+            E.cx--;
+            break;
+        case 'j':
+            E.cy--;
+            break;
+        case 'k':
+            E.cy++;
+            break;
+        case 'l':
+            E.cx++;
+            break;
+    }
+}
+
 void editorProcessKeypress(void) {
     char c = editorReadKey();
 
     switch (c) {
         case CTRL_KEY('q'):
             exit(0);
+            break;
+        case 'h':
+        case 'j':
+        case 'k':
+        case 'l':
+            editorMoveCursor(c);
             break;
     }
 }
@@ -179,7 +225,7 @@ void editorDrawRows(ABUF_T *ab) {
         }
 
         // Clear one line at a time
-        abAppend(ab, "\x1b[K", 3);
+        abAppend(ab, ES27_S"[K", 3);
 
         // printing newline for last row makes terminal scroll up
         // this ensures last line doesn't have CRNL in it 
@@ -197,21 +243,27 @@ void editorRefreshScreen(void) {
     // Ref https://vt100.net/docs/vt100-ug/chapter3.html#ED
 
     // Escape sequence to hide cursor which might not be supported in older terminals
-    abAppend(&ab, "\x1b[?25l", 6);
-    abAppend(&ab, "\x1b[H", 3);
+    abAppend(&ab, ES27_S"[?25l", 6);
+    abAppend(&ab, ES27_S"[H", 3);
 
     editorDrawRows(&ab);
 
-    abAppend(&ab, "\x1b[H", 3);
-    abAppend(&ab, "\x1b[?25h", 6);
+    char buf[32];
+    snprintf(buf, sizeof(buf), ES27_S"[%d;%dH", E.cy + 1, E.cx + 1);
+    abAppend(&ab, buf, 6);
 
-    write(STDOUT_FILENO, ab.b, ab.len);
+    abAppend(&ab, ES27_S"[?25h", 6);
+
+    WRITE_FILE(ab.b, ab.len);
     abFree(&ab);
 }
 
 /*** init ***/
 
 void initEditor(void) {
+    E.cx = 0;
+    E.cy = 0;
+    
     if (getWindowSize(&E.screen_rows, &E.screen_cols) == -1) die("getWindowSize");
 }
 
