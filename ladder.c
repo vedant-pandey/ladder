@@ -9,6 +9,8 @@
 
 /*** defines ***/
 
+#define LADDER_VERSION "0.0.1"
+
 #define CTRL_KEY(k) ((k) & 0x1f)
 
 /*** data ***/
@@ -122,8 +124,9 @@ struct abuf {
 };
 
 #define ABUF_INIT {NULL, 0}
+#define ABUF_T struct abuf
 
-void abAppend(struct abuf *ab, const char *s, int len) {
+void abAppend(ABUF_T *ab, const char *s, int len) {
     char *new = realloc(ab->b, ab->len + len);
 
     if (new == NULL) return;
@@ -132,7 +135,7 @@ void abAppend(struct abuf *ab, const char *s, int len) {
     ab->len += len;
 }
 
-void abFree(struct abuf *ab) {
+void abFree(ABUF_T *ab) {
     free(ab->b);
 }
 
@@ -150,10 +153,28 @@ void editorProcessKeypress(void) {
 
 /*** output ***/
 
-void editorDrawRows(struct abuf *ab) {
+void drawWelcomeMessage(ABUF_T *ab) {
+    char welcome[80];
+    int welcome_len = snprintf(welcome, sizeof(welcome), "Ladder editor -- version %s", LADDER_VERSION);
+    if (welcome_len > E.screen_cols) welcome_len = E.screen_cols;
+    int padding = (E.screen_cols - welcome_len) / 2;
+    if (padding) {
+        abAppend(ab, "~", 1);
+        --padding;
+    }
+    while (padding--) abAppend(ab, " ", 1);
+    abAppend(ab, welcome, welcome_len);
+
+}
+
+void editorDrawRows(ABUF_T *ab) {
     int y;
     for (y = 0; y < E.screen_rows; ++y) {
-        abAppend(ab, "~", 1);
+        if (y == E.screen_rows / 3) {
+            drawWelcomeMessage(ab);
+        } else {
+            abAppend(ab, "~", 1);
+        }
 
         // Clear one line at a time
         abAppend(ab, "\x1b[K", 3);
@@ -167,7 +188,7 @@ void editorDrawRows(struct abuf *ab) {
 }
 
 void editorRefreshScreen(void) {
-    struct abuf ab = ABUF_INIT;
+    ABUF_T ab = ABUF_INIT;
     // 4 describes to write 4 bytes in the terminal
     // \x1b initiates escape sequence and is 27 in decimal
     // [2J are other 3 bytes which are the escape sequence for clear screen
