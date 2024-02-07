@@ -1,4 +1,5 @@
 /*** includes ***/
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -149,9 +150,9 @@ struct abuf {
 };
 
 #define ABUF_INIT {NULL, 0}
-#define ABUF_T struct abuf
+typedef struct abuf Abuf;
 
-void abAppend(ABUF_T *ab, const char *s, int len) {
+void abAppend(Abuf *ab, const char *s, int len) {
     char *new = realloc(ab->b, ab->len + len);
 
     if (new == NULL) return;
@@ -160,7 +161,7 @@ void abAppend(ABUF_T *ab, const char *s, int len) {
     ab->len += len;
 }
 
-void abFree(ABUF_T *ab) {
+void abFree(Abuf *ab) {
     free(ab->b);
 }
 
@@ -201,7 +202,7 @@ void editorProcessKeypress(void) {
 
 /*** output ***/
 
-void drawWelcomeMessage(ABUF_T *ab) {
+void drawWelcomeMessage(Abuf *ab) {
     char welcome[80];
     int welcome_len = snprintf(welcome, sizeof(welcome), "Ladder editor -- version %s", LADDER_VERSION);
     if (welcome_len > E.screen_cols) welcome_len = E.screen_cols;
@@ -215,7 +216,7 @@ void drawWelcomeMessage(ABUF_T *ab) {
 
 }
 
-void editorDrawRows(ABUF_T *ab) {
+void editorDrawRows(Abuf *ab) {
     int y;
     for (y = 0; y < E.screen_rows; ++y) {
         if (y == E.screen_rows / 3) {
@@ -236,7 +237,7 @@ void editorDrawRows(ABUF_T *ab) {
 }
 
 void editorRefreshScreen(void) {
-    ABUF_T ab = ABUF_INIT;
+    Abuf ab = ABUF_INIT;
     // 4 describes to write 4 bytes in the terminal
     // \x1b initiates escape sequence and is 27 in decimal
     // [2J are other 3 bytes which are the escape sequence for clear screen
