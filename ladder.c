@@ -155,6 +155,9 @@ void editorDrawRows(struct abuf *ab) {
     for (y = 0; y < E.screen_rows; ++y) {
         abAppend(ab, "~", 1);
 
+        // Clear one line at a time
+        abAppend(ab, "\x1b[K", 3);
+
         // printing newline for last row makes terminal scroll up
         // this ensures last line doesn't have CRNL in it 
         if (y < E.screen_rows - 1) {
@@ -172,7 +175,6 @@ void editorRefreshScreen(void) {
 
     // Escape sequence to hide cursor which might not be supported in older terminals
     abAppend(&ab, "\x1b[?25l", 6);
-    abAppend(&ab, "\x1b[2J", 4);
     abAppend(&ab, "\x1b[H", 3);
 
     editorDrawRows(&ab);
