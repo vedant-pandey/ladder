@@ -20,6 +20,18 @@
 #define CRNL "\r\n"
 #define ES27_S "\x1b"
 
+enum EditorKey {
+    MOVE_UP = 1000,
+    MOVE_DOWN,
+    MOVE_RIGHT,
+    MOVE_LEFT,
+    PAGE_UP,
+    PAGE_DOWN,
+    HOME_KEY,
+    END_KEY,
+    DEL_KEY,
+};
+
 /*** data ***/
 
 struct editorConfig {
@@ -33,9 +45,13 @@ struct editorConfig E;
 
 /*** terminal ***/
 
-void die(const char *s) {
+void resetCursor(void) {
     WRITE_FILE(ES27_S"[2J", 4);
     WRITE_FILE(ES27_S"[H", 3);
+}
+
+void die(const char *s) {
+    resetCursor();
 
     perror(s);
     exit(1);
@@ -78,7 +94,7 @@ void enableRawMode(void) {
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
-char editorReadKey(void) {
+int editorReadKey(void) {
     int nread;
     char c;
     while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
@@ -92,11 +108,33 @@ char editorReadKey(void) {
         if (READ_FILE(&seq[1], 1) != 1) return ES27_C;
 
         if (seq[0] == '[') {
+            if (seq[1] >= '0' && seq[1] <= '9') {
+                if (READ_FILE(&seq[2], 1) != 1) return ES27_C;
+                if (seq[2] == '~') {
+                    switch (seq[1]) {
+                        case '1': return HOME_KEY;
+                        case '3': return DEL_KEY;
+                        case '4': return END_KEY;
+                        case '5': return PAGE_UP;
+                        case '6': return PAGE_DOWN;
+                        case '7': return HOME_KEY;
+                        case '8': return END_KEY;
+                    }
+                }
+            } else {
+                switch (seq[1]) {
+                    case 'A': return MOVE_UP;
+                    case 'B': return MOVE_DOWN;
+                    case 'C': return MOVE_RIGHT;
+                    case 'D': return MOVE_LEFT;
+                    case 'H': return HOME_KEY;
+                    case 'F': return END_KEY;
+                }
+            }
+        } else if (seq[0] == 'O') {
             switch (seq[1]) {
-                case 'A': return 'k';
-                case 'B': return 'j';
-                case 'C': return 'l';
-                case 'D': return 'h';
+                case 'H': return HOME_KEY;
+                case 'F': return END_KEY;
             }
         }
 
@@ -131,7 +169,7 @@ int getWindowSize(int *rows, int *cols) {
 
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
         // Goes to bottom right of the screen, 999 represents arbitrarily large value
-        if (WRITE_FILE(ES27_S"[999C\x1b[999B", 12) != 12) return -1;
+        if (WRITE_FILE(ES27_S"[999C"ES27_S"[999B", 12) != 12) return -1;
         // Get the current cursor position to record the size of the window
         return getCursorPosition(rows, cols);
     } else {
@@ -167,34 +205,58 @@ void abFree(Abuf *ab) {
 
 /*** input ***/
 
-void editorMoveCursor(char key) {
+void editorMoveCursor(int key) {
     switch (key) {
-        case 'h':
-            E.cx--;
+        case MOVE_LEFT:
+            if (E.cx > 0) E.cx--;
             break;
-        case 'j':
-            E.cy--;
+        case MOVE_UP:
+            if (E.cy > 0) E.cy--;
             break;
-        case 'k':
-            E.cy++;
+        case MOVE_DOWN:
+            if (E.cy < E.screen_cols - 1) E.cy++;
             break;
-        case 'l':
-            E.cx++;
+        case MOVE_RIGHT:
+            if (E.cx < E.screen_rows - 1) E.cx++;
             break;
     }
 }
 
 void editorProcessKeypress(void) {
-    char c = editorReadKey();
+    int c = editorReadKey();
 
     switch (c) {
         case CTRL_KEY('q'):
+            resetCursor();
             exit(0);
             break;
-        case 'h':
-        case 'j':
-        case 'k':
-        case 'l':
+
+        case HOME_KEY:
+            E.cx = 0;
+            break;
+
+        case END_KEY:
+            E.cx = E.screen_cols - 1;
+            break;
+
+        case DEL_KEY:
+            // Do nothing for now
+            break;
+
+        case PAGE_UP:
+        case PAGE_DOWN:
+            // This scope is required to be declared because C doesn't allow
+            // direct variable declaration in switch
+            {
+                int times = E.screen_rows;
+                while (times--) editorMoveCursor(c == PAGE_UP ? MOVE_UP : MOVE_DOWN);
+            }
+            break;
+
+        case MOVE_UP:
+        case MOVE_DOWN:
+        case MOVE_RIGHT:
+        case MOVE_LEFT:
             editorMoveCursor(c);
             break;
     }
