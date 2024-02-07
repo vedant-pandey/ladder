@@ -169,12 +169,16 @@ void editorRefreshScreen(void) {
     // \x1b initiates escape sequence and is 27 in decimal
     // [2J are other 3 bytes which are the escape sequence for clear screen
     // Ref https://vt100.net/docs/vt100-ug/chapter3.html#ED
+
+    // Escape sequence to hide cursor which might not be supported in older terminals
+    abAppend(&ab, "\x1b[?25l", 6);
     abAppend(&ab, "\x1b[2J", 4);
     abAppend(&ab, "\x1b[H", 3);
 
     editorDrawRows(&ab);
 
     abAppend(&ab, "\x1b[H", 3);
+    abAppend(&ab, "\x1b[?25h", 6);
 
     write(STDOUT_FILENO, ab.b, ab.len);
     abFree(&ab);
