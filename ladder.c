@@ -1,5 +1,4 @@
 /*** includes ***/
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -13,7 +12,11 @@
 
 /*** data ***/
 
-struct termios orig_termios;
+struct editorConfig {
+    struct termios orig_termios;
+};
+
+struct editorConfig E;
 
 /*** terminal ***/
 
@@ -27,17 +30,17 @@ void die(const char *s) {
 
 void disableRawMode(void) {
     // Reset to original flags for current terminal session
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
         die("tcsetattr");
 }
 
 // Disable canonical mode(aka Cooked Mode) in terminal
 void enableRawMode(void) {
     // Gets the attributes of running terminal in raw variable
-    if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) die("tcgetattr");
+    if (tcgetattr(STDIN_FILENO, &E.orig_termios) == -1) die("tcgetattr");
     atexit(disableRawMode);
 
-    struct termios raw = orig_termios;
+    struct termios raw = E.orig_termios;
 
     // c_lflag is for local flags
     // ECHO is a feature that echoes any key pressed to the terminal
