@@ -103,6 +103,13 @@ void editorProcessKeypress(void) {
 
 /*** output ***/
 
+void editorDrawRows(void) {
+    int y;
+    for (y = 0; y < E.screen_rows; ++y) {
+        write(STDOUT_FILENO, "~\r\n", 3);
+    }
+}
+
 void editorRefreshScreen(void) {
     // 4 describes to write 4 bytes in the terminal
     // \x1b initiates escape sequence and is 27 in decimal
@@ -110,13 +117,10 @@ void editorRefreshScreen(void) {
     // Ref https://vt100.net/docs/vt100-ug/chapter3.html#ED
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
-}
 
-void editorDrawRows(void) {
-    int y;
-    for (y = 0; y < E.screen_rows; ++y) {
-        write(STDOUT_FILENO, "~\r\n", 3);
-    }
+    editorDrawRows();
+
+    write(STDOUT_FILENO, "\x1b[H", 3);
 }
 
 /*** init ***/
@@ -132,10 +136,6 @@ int main(void) {
     while (1) {
         editorRefreshScreen();
         editorProcessKeypress();
-
-        editorDrawRows();
-
-        write(STDOUT_FILENO, "\x1b[H", 3);
     }
     return 0;
 }
